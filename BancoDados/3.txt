@@ -1,0 +1,86 @@
+3)
+db.instructor.aggregate([
+  {
+    $lookup: {
+      from: "teaches",
+      localField: "ID",
+      foreignField: "ID",
+      as: "teaches"
+    }
+  },
+  {
+    $unwind: "$teaches"
+  },
+  {
+    $lookup: {
+      from: "section",
+      let: {
+        course_id: "$teaches.course_id",
+        sec_id: "$teaches.sec_id",
+        semester: "$teaches.semester",
+        year: "$teaches.year"
+      },
+      pipeline: [
+        {
+          $match: {
+            $expr: {
+              $and: [
+                { $eq: ["$course_id", "$$course_id"] },
+                { $eq: ["$sec_id", "$$sec_id"] },
+                { $eq: ["$semester", "$$semester"] },
+                { $eq: ["$year", "$$year"] }
+              ]
+            }
+          }
+        },
+        {
+          $lookup: {
+            from: "classroom",
+            let: {
+              building: "$building",
+              room_number: "$room_number"
+            },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ["$building", "$$building"] },
+                      { $eq: ["$room_number", "$$room_number"] }
+                    ]
+                  }
+                }
+              }
+            ],
+            as: "classroom_info"
+          }
+        },
+        {
+          $unwind: "$classroom_info"
+        },
+        {
+          $project: {
+            _id: 0,
+            nome_professor: "$name",
+            prédio: "$classroom_info.building",
+            numero_sala: "$classroom_info.room_number"
+          }
+        }
+      ],
+      as: "sections"
+    }
+  },
+  {
+    $unwind: "$sections"
+  },
+  {
+    $replaceRoot: { newRoot: "$sections" }
+  }
+])
+
+select i.name as nome_professor, c.building as prédio, c.room_number as numero_sala
+from instructor i
+join teaches t on i.ID = t.ID
+join section s on t.course_id = s.course_id and t.sec_id = s.sec_id and t.semester = s.semester and t.year = s.year 
+join classroom c on s.building = c.building and s.room_number = c.room_number;
+

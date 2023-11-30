@@ -1,0 +1,61 @@
+1)
+db.student.aggregate([
+  {
+    $lookup: {
+      from: "takes",
+      localField: "id",
+      foreignField: "id",
+      as: "takes_info"
+    }
+  },
+  {
+    $unwind: "$takes_info"
+  },
+  {
+    $lookup: {
+      from: "course",
+      localField: "takes_info.course_id",
+      foreignField: "course_id",
+      as: "course_info"
+    }
+  },
+  {
+    $unwind: "$course_info"
+  },
+  {
+    $lookup: {
+      from: "instructor",
+      let: { deptName: "$course_info.dept_name" },
+      pipeline: [
+        {
+          $match: {
+            $expr: { $eq: ["$$deptName", "$dept_name"] }
+          }
+        },
+        {
+          $project: { _id: 0, name: 1 }
+        }
+      ],
+      as: "instructor_info"
+    }
+  },
+  {
+    $unwind: "$instructor_info"
+  },
+  {
+    $project: {
+      _id: 0,
+      nome_estudante: "$name",
+      nome_orientador: "$instructor_info.name",
+      disciplina: "$course_info.title"
+    }
+  }
+])
+
+
+
+select student.name as nome_estudante, instructor.name as nome_orientador, course.title as disciplina from student
+inner join takes on student.id = takes.id
+inner join course on takes.course_id = course.course_id
+inner join instructor on instructor.dept_name = course.dept_name
+

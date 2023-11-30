@@ -1,0 +1,57 @@
+2)
+db.classroom.aggregate([
+  {
+    $lookup: {
+      from: "section",
+      localField: "room_number",
+      foreignField: "room_number",
+      as: "section_info"
+    }
+  },
+  {
+    $unwind: "$section_info"
+  },
+  {
+    $lookup: {
+      from: "teaches",
+      let: { courseId: "$section_info.course_id" },
+      pipeline: [
+        {
+          $match: {
+            $expr: { $eq: ["$course_id", "$$courseId"] }
+          }
+        },
+        {
+          $lookup: {
+            from: "instructor",
+            localField: "id",
+            foreignField: "id",
+            as: "instructor_info"
+          }
+        },
+        {
+          $unwind: "$instructor_info"
+        }
+      ],
+      as: "teaches_info"
+    }
+  },
+  {
+    $unwind: "$teaches_info"
+  },
+  {
+    $project: {
+      _id: 0,
+      nome_orientador: "$teaches_info.name",
+      predio: "$building",
+      num_sala: "$room_number"
+    }
+  }
+])
+
+
+
+select instructor.name as nome_orientador, classroom.building as predio, classroom.room_number as num_sala from classroom
+inner join section on section.room_number = classroom.room_number
+inner join teaches on teaches.course_id = section.course_id
+inner join instructor on teaches.id = instructor.id
